@@ -8,6 +8,7 @@ defmodule EctoNPlusOne.MixProject do
       elixir: "~> 1.14",
       name: "EctoNPlusOne",
       description: "N+1 query detection for Ecto",
+      source_url: "https://github.com/srcrip/ecto_n_plus_one",
       package: package(),
       docs: docs(),
       start_permanent: Mix.env() == :prod,
@@ -23,6 +24,7 @@ defmodule EctoNPlusOne.MixProject do
 
   defp deps do
     [
+      {:ecto_sql, "~> 3.11"},
       {:nimble_options, "~> 1.1"},
       {:telemetry, "~> 1.2"},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
@@ -32,7 +34,10 @@ defmodule EctoNPlusOne.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"Documentation" => "https://hexdocs.pm/ecto_n_plus_one"},
+      links: %{
+        "Documentation" => "https://hexdocs.pm/ecto_n_plus_one",
+        "GitHub" => "https://github.com/srcrip/ecto_n_plus_one"
+      },
       files: ~w(lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
