@@ -18,11 +18,6 @@ defmodule EctoNPlusOne do
                       default: 1,
                       doc: "minimum distinct parameter sets"
                     ],
-                    group_by_callsite: [
-                      type: :boolean,
-                      default: true,
-                      doc: "separate query shapes by the complete application stacktrace"
-                    ],
                     application_modules: [
                       required: true,
                       type: {:custom, EctoNPlusOne.Options, :validate_application_modules, []},
@@ -41,11 +36,6 @@ defmodule EctoNPlusOne do
                       type: {:fun, 1},
                       type_spec: quote(do: (map() -> as_boolean(term()))),
                       doc: "predicate receiving a normalized query candidate"
-                    ],
-                    exclude: [
-                      type: {:fun, 1},
-                      type_spec: quote(do: (map() -> as_boolean(term()))),
-                      doc: "predicate receiving raw Ecto event metadata"
                     ],
                     include_params: [
                       type: :boolean,
@@ -70,7 +60,7 @@ defmodule EctoNPlusOne do
                     on_detect: [
                       required: true,
                       type: {:fun, 1},
-                      type_spec: quote(do: (struct() -> term())),
+                      type_spec: quote(do: (EctoNPlusOne.Detection.t() -> term())),
                       doc: "handler invoked when a query group crosses the thresholds"
                     ]
                   )
@@ -135,7 +125,6 @@ defmodule EctoNPlusOne do
     opts
     |> NimbleOptions.validate!(@options_schema)
     |> Keyword.put_new(:ignore, &never_ignore?/1)
-    |> Keyword.put_new(:exclude, &never_ignore?/1)
   end
 
   defp validate_options!(opts),

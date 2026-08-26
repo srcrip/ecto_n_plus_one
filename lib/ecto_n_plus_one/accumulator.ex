@@ -17,7 +17,7 @@ defmodule EctoNPlusOne.Accumulator do
           if options[:ignore].(candidate) do
             {groups, nil}
           else
-            stacktrace_signature = stacktrace_signature(stacktrace, options)
+            stacktrace_signature = Detection.stacktrace_signature(stacktrace)
             key = {metadata[:repo], metadata[:source], operation, query, stacktrace_signature}
 
             updated_groups =
@@ -45,15 +45,6 @@ defmodule EctoNPlusOne.Accumulator do
     end
   end
 
-  @spec detections(map(), keyword()) :: [Detection.t()]
-  def detections(groups, options) do
-    groups
-    |> Map.values()
-    |> Enum.filter(&detection?(&1, options))
-    |> Enum.map(&to_detection/1)
-    |> Enum.sort_by(&{-&1.count, inspect(&1.repo), to_string(&1.source || "")})
-  end
-
   @spec new_detection(map(), term(), keyword()) :: {map(), Detection.t() | nil}
   def new_detection(groups, key, options) do
     case Map.fetch(groups, key) do
@@ -74,9 +65,8 @@ defmodule EctoNPlusOne.Accumulator do
     Map.reject(groups, fn {_key, group} -> now - group.last_seen > window_ms end)
   end
 
-  defp capturable?(%{query: query} = metadata, options) when is_binary(query) do
-    operation_allowed?(Detection.operation(query), options[:operations]) and
-      not options[:exclude].(metadata)
+  defp capturable?(%{query: query}, options) when is_binary(query) do
+    operation_allowed?(Detection.operation(query), options[:operations])
   end
 
   defp capturable?(_metadata, _options), do: false
@@ -212,10 +202,6 @@ defmodule EctoNPlusOne.Accumulator do
       [] -> :ignore
       stacktrace -> {:ok, stacktrace}
     end
-  end
-
-  defp stacktrace_signature(stacktrace, options) do
-    if options[:group_by_callsite], do: Detection.stacktrace_signature(stacktrace)
   end
 
   defp parameter_signature(metadata) do

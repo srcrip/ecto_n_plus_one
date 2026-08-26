@@ -1,5 +1,22 @@
 defmodule EctoNPlusOne.Detection do
-  @moduledoc false
+  @moduledoc """
+  Information about a potential N+1 query passed to the configured `:on_detect` callback.
+
+  A detection represents one parameterized query shape after it crosses the configured
+  execution and parameter-variant thresholds.
+
+  The fields are:
+
+    * `:query` - the parameterized SQL string with surrounding whitespace removed
+    * `:repo` and `:source` - the Repo and Ecto source that emitted the query
+    * `:operation` - the classified SQL operation
+    * `:count` - executions observed in the active window when detection occurred
+    * `:parameter_variants` - distinct parameter signatures observed
+    * `:params` - retained parameter samples, empty unless `:include_params` is enabled
+    * `:callsite` - the nearest frame under a configured application module
+    * `:stacktrace` - every matching application frame used to group the query
+    * `:total_time` - accumulated Ecto `:total_time` in native time units
+  """
 
   @enforce_keys [
     :callsite,
@@ -10,6 +27,7 @@ defmodule EctoNPlusOne.Detection do
     :query,
     :repo,
     :source,
+    :stacktrace,
     :total_time
   ]
   defstruct [
@@ -27,28 +45,23 @@ defmodule EctoNPlusOne.Detection do
 
   @type operation :: :select | :insert | :update | :delete | :transaction | :other
 
+  @typedoc "A potential N+1 query detected from Ecto telemetry events."
   @type t :: %__MODULE__{
-          callsite: Exception.stacktrace_entry() | nil,
+          callsite: Exception.stacktrace_entry(),
           count: pos_integer(),
           operation: operation(),
           parameter_variants: pos_integer(),
           params: [term()],
           query: String.t(),
-          repo: module() | nil,
+          repo: module(),
           source: term(),
           total_time: non_neg_integer(),
-          stacktrace: list() | nil
+          stacktrace: Exception.stacktrace()
         }
 
   @doc false
   @spec normalize_query(String.t()) :: String.t()
   def normalize_query(query), do: String.trim(query)
-
-  @doc false
-  @spec callsite(Exception.stacktrace() | nil, [module() | nil], [module()]) ::
-          Exception.stacktrace_entry() | nil
-  def callsite(stacktrace, ignored_modules, application_modules),
-    do: stacktrace |> application_stacktrace(ignored_modules, application_modules) |> List.first()
 
   @doc false
   @spec application_stacktrace(Exception.stacktrace() | nil, [module() | nil], [module()]) ::

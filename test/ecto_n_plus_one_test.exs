@@ -187,10 +187,10 @@ defmodule EctoNPlusOneTest do
     refute_receive {:detection, _detection}, 0
   end
 
-  test "honors thresholds and exclusions" do
+  test "honors thresholds and ignores" do
     attach(
       threshold: 3,
-      exclude: fn metadata -> metadata.source == "ignored" end
+      ignore: fn query -> query.source == "ignored" end
     )
 
     Enum.each(1..3, &emit("SELECT * FROM ignored WHERE id = $1", [&1], source: "ignored"))

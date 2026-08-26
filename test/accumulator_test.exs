@@ -53,8 +53,6 @@ defmodule EctoNPlusOne.AccumulatorTest do
     Keyword.merge(
       [
         application_modules: [MyApp],
-        exclude: fn _metadata -> false end,
-        group_by_callsite: true,
         ignore: fn _candidate -> false end,
         include_params: false,
         max_queries: 1_000,

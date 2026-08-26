@@ -18,30 +18,20 @@ defmodule EctoNPlusOne.DetectionTest do
     assert Detection.operation("/* generated */ SELECT * FROM users") == :select
   end
 
-  test "finds the first application callsite" do
-    application_frame = {MyApp.Accounts, :load_profile, 1, [file: ~c"lib/accounts.ex", line: 42]}
-
-    stacktrace = [
-      {Ecto.Repo.Queryable, :execute, 4, [file: ~c"lib/ecto/repo/queryable.ex", line: 1]},
-      {EctoNPlusOne.Telemetry, :handle_event, 4, [file: ~c"lib/telemetry.ex", line: 1]},
-      application_frame
-    ]
-
-    assert Detection.callsite(stacktrace, [], [MyApp]) == application_frame
-    assert Detection.callsite([application_frame], [MyApp.Accounts], [MyApp]) == nil
-    assert Detection.callsite(nil, [], [MyApp]) == nil
-  end
-
-  test "finds the first callsite inside an allowed module namespace" do
+  test "retains only frames inside an allowed module namespace" do
     dependency_frame = {Oban.Repo, :dynamic_dispatch, 4, [file: ~c"lib/oban/repo.ex", line: 296]}
 
     application_frame =
       {MyApp.Catalog.Loader, :load, 1, [file: ~c"lib/catalog/loader.ex", line: 12]}
 
-    assert Detection.callsite([dependency_frame, application_frame], [], [MyApp]) ==
-             application_frame
+    assert Detection.application_stacktrace(
+             [dependency_frame, application_frame],
+             [],
+             [MyApp]
+           ) == [application_frame]
 
-    assert Detection.callsite([dependency_frame], [], [MyApp, MyAppWeb]) == nil
+    assert Detection.application_stacktrace([dependency_frame], [], [MyApp, MyAppWeb]) == []
+    assert Detection.application_stacktrace(nil, [], [MyApp]) == []
   end
 
   test "retains and canonicalizes the complete application stacktrace" do
