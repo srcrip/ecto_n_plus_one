@@ -1,0 +1,57 @@
+<Layouts.app>
+  <section id="n-plus-one-demo">
+    <header>
+      <p class="eyebrow">Intentional failure</p>
+      <h1>Ecto N+1 detection demo</h1>
+      <p>
+        This request loads every author, then executes one post query per author. The local
+        EctoNPlusOne dependency observes Ecto Telemetry and calls the demo's user-defined handler.
+      </p>
+    </header>
+
+    <%= if is_nil(@detection) do %>
+      <div id="detection-empty">
+        <h2>No pattern detected</h2>
+        <p>Seed at least five authors with <code>mix setup</code>, then reload this page.</p>
+      </div>
+    <% else %>
+      <div id="detection-alert">
+        <h2>N+1 pattern detected</h2>
+        <p>The configured callback received a suspicious query pattern.</p>
+
+        <article id={"detection-#{:erlang.phash2(@detection.query)}"}>
+          <p>
+            <strong>{@detection.count} executions</strong>
+            with <strong>{@detection.parameter_variants} parameter variants</strong>
+            against <code>{@detection.source}</code>
+          </p>
+          <pre><code>{@detection.query}</code></pre>
+          <p>Callsite: <code>{format_callsite(@detection.callsite)}</code></p>
+        </article>
+      </div>
+    <% end %>
+
+    <section id="query-results">
+      <h2>Data returned by the inefficient path</h2>
+      <%= for %{author: author, posts: posts} <- @rows do %>
+        <article id={"author-#{author.id}"}>
+          <h3>{author.name}</h3>
+          <ul>
+            <%= for post <- posts do %>
+              <li id={"post-#{post.id}"}>{post.title}</li>
+            <% end %>
+          </ul>
+        </article>
+      <% end %>
+    </section>
+
+    <section id="fix">
+      <h2>The fix</h2>
+      <p>
+        Compare <code>Catalog.list_authors_with_posts_n_plus_one/0</code>
+        with <code>Catalog.list_authors_with_posts_preloaded/0</code>. The focused test proves the
+        preloaded version does not produce a detection.
+      </p>
+    </section>
+  </section>
+</Layouts.app>
