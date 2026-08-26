@@ -31,7 +31,9 @@ You may also need to adjust the detection thresholds from their defaults, if you
 sensitive. You can also ignore certain queries, which is detailed below.
 
 Is this performant? This library does end up storing state in the process dictionary, but it's virtually impossible that
-you have a single process that is querying so many times that it's going to be a problem or a bottleneck.
+you have a single process that is querying so many times that it's going to be a problem or a bottleneck. You will also
+need to turn on `stacktrace: true` in your Repo config, which I assume does have a performance cost. I honestly have no
+idea how big that cost is. If you know, feel free to let me know!
 
 ## Installation
 
@@ -41,9 +43,22 @@ Add the hex package to your `mix.exs`:
 {:ecto_n_plus_one, "~> 0.1.0"}
 ```
 
+Then you need to make sure you have `stacktrace: true` turned on when you configure your [Ecto
+Repo](https://ecto.hexdocs.pm/Ecto.Repo.html) in your `config.exs`:
+
+```elixir
+config :my_app, MyApp.Repo,
+  # ... other ecto config stuff
+  url: System.get_env("DATABASE_URL"),
+  # ...
+  stacktrace: true
+```
+
+Then setup the telemetry handler as described below:
+
 ## Setup / Usage
 
-Then you'll need to attach the Telemetry handler in your `application.ex`:
+You'll need to attach the Telemetry handler in your `application.ex`:
 
 ```elixir
 require Logger
