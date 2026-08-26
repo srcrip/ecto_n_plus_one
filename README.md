@@ -1,6 +1,37 @@
-# EctoNPlusOne
+# `EctoNPlusOne`
 
-quick explanation
+Ecto is a lot better than other ORMs in terms of making it possible to construct N+1 queries. It does not auto load
+associations, and it has no syntax for auto loading them on record/object access, which many/most ORMs do. If you’re
+like me, you’ve been using Ecto so long, you’ve forgotten that other ORMs don’t work this way. But many other ORMs
+perform actual queries when doing record access, making it very simple to write N+1 queries.
+
+Whilst Ecto is not susceptible to that particular problem, it is still quite possible to write N+1 queries. All you have
+to do is have a loop in which you do some query inside, where the thing you loop over is possible to be some arbitrarily
+large value (often itself even coming from another database value).
+
+It's pretty easy to ensure you don't do this on new, small projects, where you can reasonably analyze every query your
+doing. But when you accrue more and more code in a large project like a Phoenix application, it's quite possible to end
+up writing stuff like this by mistake.
+
+## Detection
+
+`EctoNPlusOne` is designed to help you detect these possible N+1 queries. It works by attaching a Telemetry handler
+when your application tree starts, listens to incoming queries, stores some information about them in the process
+dictionary, and compares that information when new ones come in from the same process to see if they match a signal that
+seems like it could be a potential N+1 situation.
+
+Note two things:
+
+1. This library can only detect possible problems, it is up to you to determine if they are actually problems or false
+   positives.
+2. Sometimes querying stuff in a loop is what you want to do. There is no foolproof way to 100% detect these situations
+   because the detector can't know what you had in mind when you wrote it, if you wrote it intentionally that way.
+
+You may also need to adjust the detection thresholds from their defaults, if you want to make things more or less
+sensitive. You can also ignore certain queries, which is detailed below.
+
+Is this performant? This library does end up storing state in the process dictionary, but it's virtually impossible that
+you have a single process that is querying so many times that it's going to be a problem or a bottleneck.
 
 ## Installation
 
@@ -29,7 +60,7 @@ def start(_type, _args) do
       application_modules: [MyApp, MyAppWeb],
       # on_detect/1 will be called when we detect a potential N+1 query
       on_detect: fn detection ->
-        Logger.warning("potential N+1 query detected: #{inspect(detection)}")
+        Logger.warning("potential N+1 query detected:", count: detection.count, query: detection.query)
         # you can then do whatever you want in here: simply log it out, send a slack message, etc
       end
     )
@@ -48,7 +79,7 @@ defmodule MyApp.NPlusOneHandler do
   require Logger
 
   def handle(detection) do
-    Logger.warning("N+1 query detected", count: detection.count, query: detection.query)
+    Logger.warning("potential N+1 query detected:", count: detection.count, query: detection.query)
   end
 end
 
