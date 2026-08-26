@@ -57,7 +57,7 @@ defmodule EctoNPlusOne.Telemetry do
   end
 
   defp report(nil, _options), do: :ok
-  defp report(detection, options), do: options[:on_detect].([detection])
+  defp report(detection, options), do: options[:on_detect].(detection)
 
   defp handler_id(event), do: {__MODULE__, event}
 

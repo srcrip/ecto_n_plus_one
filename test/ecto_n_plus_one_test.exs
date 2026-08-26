@@ -34,16 +34,14 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM profiles WHERE user_id = $1", [1], total_time: 7)
     emit("SELECT * FROM profiles WHERE user_id = $1", [2], total_time: 11)
 
-    assert_receive {:detections,
-                    [
-                      %Detection{
-                        count: 2,
-                        parameter_variants: 2,
-                        query: "SELECT * FROM profiles WHERE user_id = $1",
-                        source: "users",
-                        total_time: 18
-                      }
-                    ]}
+    assert_receive {:detection,
+                    %Detection{
+                      count: 2,
+                      parameter_variants: 2,
+                      query: "SELECT * FROM profiles WHERE user_id = $1",
+                      source: "users",
+                      total_time: 18
+                    }}
   end
 
   test "does not report ordinary queries that are not an N+1" do
@@ -55,7 +53,7 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM records WHERE id = $1", [2], source: "posts")
     emit("SELECT * FROM records WHERE id = $1", [3], repo: OtherRepo)
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
   end
 
   test "reports repeated identical parameters by default" do
@@ -64,7 +62,7 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM capabilities WHERE viewer_id = $1", [1])
     emit("SELECT * FROM capabilities WHERE viewer_id = $1", [1])
 
-    assert_receive {:detections, [%Detection{count: 2, parameter_variants: 1, source: "users"}]}
+    assert_receive {:detection, %Detection{count: 2, parameter_variants: 1, source: "users"}}
   end
 
   test "uses a five-query threshold by default" do
@@ -72,17 +70,17 @@ defmodule EctoNPlusOneTest do
 
     EctoNPlusOne.attach(Repo,
       application_modules: [MyApp],
-      on_detect: fn detections -> send(owner, {:detections, detections}) end
+      on_detect: fn detection -> send(owner, {:detection, detection}) end
     )
 
     Enum.each(1..4, fn _index ->
       emit("SELECT * FROM capabilities WHERE viewer_id = $1", [1])
     end)
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
     emit("SELECT * FROM capabilities WHERE viewer_id = $1", [1])
 
-    assert_receive {:detections, [%Detection{count: 5, parameter_variants: 1, source: "users"}]}
+    assert_receive {:detection, %Detection{count: 5, parameter_variants: 1, source: "users"}}
   end
 
   test "can require distinct parameter variants" do
@@ -91,7 +89,7 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM capabilities WHERE viewer_id = $1", [1])
     emit("SELECT * FROM capabilities WHERE viewer_id = $1", [1])
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
   end
 
   test "ignores writes and transaction queries by default" do
@@ -102,7 +100,7 @@ defmodule EctoNPlusOneTest do
     emit("BEGIN", [])
     emit("BEGIN", [])
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
   end
 
   test "separates identical SQL from different application callsites" do
@@ -114,7 +112,7 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM users WHERE id = $1", [1], stacktrace: first)
     emit("SELECT * FROM users WHERE id = $1", [2], stacktrace: second)
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
   end
 
   test "separates the same query callsite reached through different application stacks" do
@@ -137,19 +135,17 @@ defmodule EctoNPlusOneTest do
       stacktrace: [query_frame, second_caller]
     )
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
 
     emit("SELECT * FROM profiles WHERE user_id = $1", [3],
       stacktrace: [query_frame, first_caller]
     )
 
-    assert_receive {:detections,
-                    [
-                      %Detection{
-                        callsite: ^query_frame,
-                        stacktrace: [^query_frame, ^first_caller]
-                      }
-                    ]}
+    assert_receive {:detection,
+                    %Detection{
+                      callsite: ^query_frame,
+                      stacktrace: [^query_frame, ^first_caller]
+                    }}
   end
 
   test "requires a callsite under a configured application module" do
@@ -167,7 +163,7 @@ defmodule EctoNPlusOneTest do
       stacktrace: dependency_stack
     )
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
 
     application_frame =
       {MyApp.Catalog.Loader, :load, 1, [file: ~c"lib/my_app/catalog/loader.ex", line: 12]}
@@ -177,7 +173,7 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM posts WHERE author_id = $1", [1], stacktrace: application_stack)
     emit("SELECT * FROM posts WHERE author_id = $1", [2], stacktrace: application_stack)
 
-    assert_receive {:detections, [%Detection{callsite: ^application_frame, count: 2}]}
+    assert_receive {:detection, %Detection{callsite: ^application_frame, count: 2}}
   end
 
   test "reports only once while a matching query group remains active" do
@@ -185,10 +181,10 @@ defmodule EctoNPlusOneTest do
 
     emit("SELECT * FROM posts WHERE author_id = $1", [1])
     emit("SELECT * FROM posts WHERE author_id = $1", [2])
-    assert_receive {:detections, [%Detection{count: 2}]}
+    assert_receive {:detection, %Detection{count: 2}}
 
     emit("SELECT * FROM posts WHERE author_id = $1", [3])
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
   end
 
   test "honors thresholds and exclusions" do
@@ -199,10 +195,10 @@ defmodule EctoNPlusOneTest do
 
     Enum.each(1..3, &emit("SELECT * FROM ignored WHERE id = $1", [&1], source: "ignored"))
     Enum.each(1..2, &emit("SELECT * FROM users WHERE id = $1", [&1]))
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
 
     emit("SELECT * FROM users WHERE id = $1", [3])
-    assert_receive {:detections, [%Detection{count: 3, source: "users"}]}
+    assert_receive {:detection, %Detection{count: 3, source: "users"}}
   end
 
   test "ignores normalized query candidates with pattern-matched callback clauses" do
@@ -235,7 +231,7 @@ defmodule EctoNPlusOneTest do
       stacktrace: [ignored_callsite]
     )
 
-    refute_receive {:detections, _detections}, 0
+    refute_receive {:detection, _detection}, 0
 
     tracked_callsite =
       {MyApp.Catalog.Loader, :load, 1, [file: ~c"lib/my_app/catalog/loader.ex", line: 20]}
@@ -250,15 +246,13 @@ defmodule EctoNPlusOneTest do
       stacktrace: [tracked_callsite]
     )
 
-    assert_receive {:detections,
-                    [
-                      %Detection{
-                        callsite: ^tracked_callsite,
-                        operation: :select,
-                        query: "SELECT * FROM posts WHERE author_id = $1",
-                        source: "posts"
-                      }
-                    ]}
+    assert_receive {:detection,
+                    %Detection{
+                      callsite: ^tracked_callsite,
+                      operation: :select,
+                      query: "SELECT * FROM posts WHERE author_id = $1",
+                      source: "posts"
+                    }}
   end
 
   test "can retain a capped number of parameter samples" do
@@ -267,7 +261,7 @@ defmodule EctoNPlusOneTest do
     emit("SELECT * FROM users WHERE id = $1", [1])
     emit("SELECT * FROM users WHERE id = $1", [2])
 
-    assert_receive {:detections, [%Detection{params: [[1], [2]]}]}
+    assert_receive {:detection, %Detection{params: [[1], [2]]}}
   end
 
   test "attaches to multiple Repos" do
@@ -277,7 +271,7 @@ defmodule EctoNPlusOneTest do
       EctoNPlusOne.attach([Repo, OtherRepo],
         application_modules: [MyApp],
         threshold: 2,
-        on_detect: fn detections -> send(owner, {:detections, detections}) end
+        on_detect: fn detection -> send(owner, {:detection, detection}) end
       )
 
     emit_event(@other_event, "SELECT * FROM events WHERE account_id = $1", [1],
@@ -290,7 +284,7 @@ defmodule EctoNPlusOneTest do
       source: "events"
     )
 
-    assert_receive {:detections, [%Detection{repo: OtherRepo, source: "events"}]}
+    assert_receive {:detection, %Detection{repo: OtherRepo, source: "events"}}
   end
 
   test "detach removes the Repo handler" do
@@ -302,7 +296,7 @@ defmodule EctoNPlusOneTest do
   end
 
   test "validates Repos and options before attaching" do
-    handler = fn _detections -> :ok end
+    handler = fn _detection -> :ok end
 
     refute function_exported?(EctoNPlusOne, :event_name, 1)
     refute function_exported?(EctoNPlusOne, :attach, 1)
@@ -377,7 +371,7 @@ defmodule EctoNPlusOneTest do
     EctoNPlusOne.attach(Repo,
       application_modules: [MyApp],
       threshold: 2,
-      on_detect: fn _detections -> raise "handler unavailable" end
+      on_detect: fn _detection -> raise "handler unavailable" end
     )
 
     log =
@@ -398,7 +392,7 @@ defmodule EctoNPlusOneTest do
       opts
       |> Keyword.put_new(:threshold, 2)
       |> Keyword.put_new(:application_modules, [MyApp])
-      |> Keyword.put(:on_detect, fn detections -> send(owner, {:detections, detections}) end)
+      |> Keyword.put(:on_detect, fn detection -> send(owner, {:detection, detection}) end)
 
     EctoNPlusOne.attach(Repo, opts)
   end

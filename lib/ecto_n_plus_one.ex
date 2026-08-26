@@ -70,7 +70,7 @@ defmodule EctoNPlusOne do
                     on_detect: [
                       required: true,
                       type: {:fun, 1},
-                      type_spec: quote(do: ([struct()] -> term())),
+                      type_spec: quote(do: (struct() -> term())),
                       doc: "handler invoked when a query group crosses the thresholds"
                     ]
                   )

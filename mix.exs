@@ -33,14 +33,14 @@ defmodule EctoNPlusOne.MixProject do
     [
       licenses: ["MIT"],
       links: %{"Documentation" => "https://hexdocs.pm/ecto_n_plus_one"},
-      files: ~w(lib guides .formatter.exs mix.exs README.md CHANGELOG.md LICENSE)
+      files: ~w(lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
 
   defp docs do
     [
       main: "readme",
-      extras: ["README.md", "guides/architecture.md", "CHANGELOG.md", "LICENSE"]
+      extras: ["README.md", "CHANGELOG.md", "LICENSE"]
     ]
   end
 end
