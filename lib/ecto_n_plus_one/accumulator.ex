@@ -60,6 +60,22 @@ defmodule EctoNPlusOne.Accumulator do
     end
   end
 
+  @doc """
+  Returns every group that crosses the configured thresholds, with the largest first.
+
+  Unlike `new_detection/3`, this inspects final counts rather than reporting at the moment a group
+  first crosses the thresholds. `EctoNPlusOne.Test` uses it to analyze the complete set of queries
+  captured during a test block.
+  """
+  @spec detections(map(), keyword()) :: [Detection.t()]
+  def detections(groups, options) do
+    groups
+    |> Map.values()
+    |> Enum.filter(&detection?(&1, options))
+    |> Enum.sort_by(&{&1.count, MapSet.size(&1.parameter_signatures)}, :desc)
+    |> Enum.map(&to_detection/1)
+  end
+
   @spec prune(map(), integer(), non_neg_integer()) :: map()
   def prune(groups, now, window_ms) do
     Map.reject(groups, fn {_key, group} -> now - group.last_seen > window_ms end)
