@@ -27,6 +27,7 @@ defmodule EctoNPlusOne.MixProject do
       {:ecto_sql, "~> 3.11"},
       {:nimble_options, "~> 1.1"},
       {:telemetry, "~> 1.2"},
+      {:ex_check, "~> 0.16.0", only: :dev, runtime: false},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
