@@ -163,6 +163,64 @@ And then you could call your attach function, which wraps up the libraries then,
 :ok = MyApp.EctoNPlusOne.attach()
 ```
 
+## Use in tests
+
+The runtime detector above is designed for production-shaped traffic and does not work well inside tests:
+fixture setup, repeated renders, and the code under test all run in one process within one detection window,
+so ordinary queries end up looking like N+1s from the point of view of the detector (which just sees the same process
+running the same query multiple times).
+
+For tests, use `EctoNPlusOne.Test.assert_no_n_plus_one/2` instead. It scopes detection to exactly one block of code
+and fails your test only when the same query runs from the same callsite several times with different parameters
+(the signature of a query in a loop). For instance:
+
+```elixir
+defmodule MyAppWeb.HomeLiveTest do
+  use MyAppWeb.ConnCase, async: true
+
+  import Phoenix.LiveViewTest
+
+  use EctoNPlusOne.Test,
+    repos: MyApp.Repo,
+    application_modules: [MyApp, MyAppWeb]
+
+  test "the home page has no n+1 queries", %{conn: conn} do
+    # Won't trigger a failure, since it's run outside the assertion
+    insert_posts(5)
+
+    {:ok, _view, html} = 
+      assert_no_n_plus_one(fn ->
+        live(conn, ~p"/") 
+      end)
+
+    assert html =~ "Home"
+  end
+end
+```
+
+A failing test reports the query, the callsite, and sample parameters:
+
+```
+** (EctoNPlusOne.Test.NPlusOneDetectedError) potential N+1 query detected during the checked block:
+
+  1) 10 executions with 5 distinct parameter sets (MyApp.Repo, source "posts")
+
+     SELECT p0."id", p0."title", ... FROM "posts" AS p0 WHERE (p0."author_id" = ?)
+
+     callsite: (my_app 0.1.0) lib/my_app/catalog.ex:33: MyApp.Catalog.load_posts/1
+     sample parameters: [[1], [2], [3]]
+```
+
+Notes:
+
+- `assert_no_n_plus_one` fails after at least `:threshold` executions (default 3) *and* at least `:min_parameter_variants`
+  distinct parameter sets (default 2). A query that merely repeats per render (once in the disconnected state, then
+  again in the connected LiveView mount) will not be flagged, since it repeats with the *same* parameters.
+- These assertions are compatible with `async: true`; only queries from your test process and processes 
+  started by the test will be counted.
+- To build custom assertions, you can use `EctoNPlusOne.Test.detect_n_plus_one_queries/2`, which returns
+  `{result, detections}` without raising.
+
 ## Options
 
 Here's a full list of options to `attach/2`:

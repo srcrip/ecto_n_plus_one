@@ -6,7 +6,8 @@ config :ecto_n_plus_one_demo,
 config :ecto_n_plus_one_demo, EctoNPlusOneDemoWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
-  render_errors: [formats: [html: EctoNPlusOneDemoWeb.ErrorHTML], layout: false]
+  render_errors: [formats: [html: EctoNPlusOneDemoWeb.ErrorHTML], layout: false],
+  live_view: [signing_salt: "wLkBhKp3"]
 
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",

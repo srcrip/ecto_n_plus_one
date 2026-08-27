@@ -92,16 +92,18 @@ defmodule EctoNPlusOne do
   @spec detach(repos()) :: :ok
   def detach(repos), do: repos |> event_names!() |> Telemetry.detach()
 
-  defp event_names!(repos) when is_list(repos) do
+  @doc false
+  @spec event_names!(repos()) :: [:telemetry.event_name()]
+  def event_names!(repos) when is_list(repos) do
     case repos |> Enum.map(&event_name!/1) |> Enum.uniq() do
       [] -> raise ArgumentError, "at least one Ecto Repo is required"
       events -> events
     end
   end
 
-  defp event_names!(repo) when is_atom(repo), do: [event_name!(repo)]
+  def event_names!(repo) when is_atom(repo), do: [event_name!(repo)]
 
-  defp event_names!(repo),
+  def event_names!(repo),
     do: raise(ArgumentError, "expected an Ecto Repo module, got: #{inspect(repo)}")
 
   defp event_name!(repo) when is_atom(repo) do
