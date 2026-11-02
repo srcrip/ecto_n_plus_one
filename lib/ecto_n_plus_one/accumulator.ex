@@ -5,9 +5,8 @@ defmodule EctoNPlusOne.Accumulator do
 
   @spec capture(map(), map(), map(), keyword(), integer()) :: {map(), term() | nil}
   def capture(groups, measurements, metadata, options, now) do
-    if capturable?(metadata, options) do
+    if operation = capturable_operation(metadata, options) do
       query = Detection.normalize_query(metadata.query)
-      operation = Detection.operation(query)
 
       case application_stacktrace(metadata, options) do
         {:ok, stacktrace} ->
@@ -81,11 +80,12 @@ defmodule EctoNPlusOne.Accumulator do
     Map.reject(groups, fn {_key, group} -> now - group.last_seen > window_ms end)
   end
 
-  defp capturable?(%{query: query}, options) when is_binary(query) do
-    operation_allowed?(Detection.operation(query), options[:operations])
+  defp capturable_operation(%{query: query}, options) when is_binary(query) do
+    operation = Detection.operation(query)
+    if operation_allowed?(operation, options[:operations]), do: operation
   end
 
-  defp capturable?(_metadata, _options), do: false
+  defp capturable_operation(_metadata, _options), do: nil
 
   defp put_query(
          groups,

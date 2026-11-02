@@ -68,7 +68,8 @@ defmodule EctoNPlusOne.Detection do
           Exception.stacktrace()
   def application_stacktrace(stacktrace, ignored_modules, application_modules)
       when is_list(stacktrace) do
-    Enum.filter(stacktrace, &application_frame?(&1, ignored_modules, application_modules))
+    namespaces = Enum.map(application_modules, &namespace/1)
+    Enum.filter(stacktrace, &application_frame?(&1, ignored_modules, namespaces))
   end
 
   def application_stacktrace(_stacktrace, _ignored_modules, _application_modules), do: []
@@ -85,24 +86,38 @@ defmodule EctoNPlusOne.Detection do
   @spec operation(String.t()) :: operation()
   def operation(query) do
     query
-    |> String.trim()
-    |> strip_leading_comments()
-    |> normalize_query()
+    |> skip_comments()
     |> first_word()
+    |> String.upcase()
     |> classify()
   end
 
-  defp strip_leading_comments(query) do
-    query
-    |> String.replace(~r/\A(?:--[^\n]*(?:\n|\z)|\/\*.*?\*\/\s*)+/s, "")
-    |> String.trim_leading()
+  # Walks past leading whitespace and comments only, so the cost does not grow
+  # with the length of the query.
+  defp skip_comments(<<char, rest::binary>>) when char in ~c" \t\n\r\f\v",
+    do: skip_comments(rest)
+
+  defp skip_comments(<<"--", rest::binary>>) do
+    case :binary.split(rest, "\n") do
+      [_comment, rest] -> skip_comments(rest)
+      [_comment] -> ""
+    end
   end
 
+  defp skip_comments(<<"/*", rest::binary>> = query) do
+    case :binary.split(rest, "*/") do
+      [_comment, rest] -> skip_comments(rest)
+      [_unterminated] -> query
+    end
+  end
+
+  defp skip_comments(query), do: query
+
   defp first_word(query) do
-    query
-    |> String.split(~r/\s+/, parts: 2)
-    |> List.first("")
-    |> String.upcase()
+    case :binary.match(query, [" ", "\t", "\n", "\r", "\f", "\v"]) do
+      {index, _length} -> binary_part(query, 0, index)
+      :nomatch -> query
+    end
   end
 
   defp classify("SELECT"), do: :select
@@ -119,18 +134,18 @@ defmodule EctoNPlusOne.Detection do
   defp application_frame?(
          {module, _function, _arity_or_args, _location},
          ignored_modules,
-         application_modules
+         namespaces
        )
        when is_atom(module) do
     module_name = Atom.to_string(module)
 
     module not in ignored_modules and
-      Enum.any?(application_modules, fn application_module ->
-        namespace?(module_name, Atom.to_string(application_module))
+      Enum.any?(namespaces, fn {name, prefix} ->
+        module_name == name or String.starts_with?(module_name, prefix)
       end)
   end
 
-  defp application_frame?(_frame, _ignored_modules, _application_modules), do: false
+  defp application_frame?(_frame, _ignored_modules, _namespaces), do: false
 
   defp frame_signature({module, function, arity_or_args, location}) do
     {module, function, arity(arity_or_args), location[:file], location[:line]}
@@ -139,6 +154,8 @@ defmodule EctoNPlusOne.Detection do
   defp arity(arity) when is_integer(arity), do: arity
   defp arity(arguments) when is_list(arguments), do: length(arguments)
 
-  defp namespace?(module, namespace),
-    do: module == namespace or String.starts_with?(module, namespace <> ".")
+  defp namespace(module) do
+    name = Atom.to_string(module)
+    {name, name <> "."}
+  end
 end
