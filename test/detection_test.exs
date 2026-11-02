@@ -18,6 +18,25 @@ defmodule EctoNPlusOne.DetectionTest do
     assert Detection.operation("/* generated */ SELECT * FROM users") == :select
   end
 
+  test "reads the first word past any whitespace and comment" do
+    assert Detection.operation("\n\t  SELECT 1") == :select
+    assert Detection.operation("SELECT\n*\nFROM users") == :select
+    assert Detection.operation("begin") == :transaction
+    assert Detection.operation("-- one\n/* two */ -- three\nselect 1") == :select
+    assert Detection.operation("/* multi\nline */\n\nDELETE FROM users") == :delete
+    assert Detection.operation("-- only a comment") == :other
+    assert Detection.operation("/* unterminated SELECT 1") == :other
+    assert Detection.operation("") == :other
+    assert Detection.operation("   ") == :other
+    assert Detection.operation("WITHIN") == :other
+    assert Detection.operation("select(1)") == :other
+  end
+
+  test "skips whitespace between leading comments" do
+    assert Detection.operation("-- one\n\n-- two\nSELECT 1") == :select
+    assert Detection.operation("-- one\n  /* two */ UPDATE users SET a = 1") == :update
+  end
+
   test "retains only frames inside an allowed module namespace" do
     dependency_frame = {Oban.Repo, :dynamic_dispatch, 4, [file: ~c"lib/oban/repo.ex", line: 296]}
 
